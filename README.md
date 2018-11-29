@@ -1,5 +1,5 @@
 # LFTP
-2018中山大学计算机网络项目：基于udp实现tcp功能进行大文件传输
+## 2018中山大学计算机网络项目：基于udp实现tcp功能进行大文件传输
 
 + LFTP	should	use	a	client-server	service	model;
 
