@@ -4,42 +4,65 @@ import threading
 import os
 import sys
 
-# 传送一个包结构，包含序列号，确认号，文件结束标志，数据包
+# 传送一个包的结构，包含序列号，确认号，文件结束标志，数据包
 packet_struct = struct.Struct('III1024s')
 
-# 循环接收客户端发送数据，并将数据发回
+# 接收后返回的信息结构，包括ACK确认，rwnd
+feedback_struct = struct.Struct('II')
+
 BUF_SIZE = 1024+24
 FILE_SIZE = 1024
 IP = '127.0.0.1'
-SERVER_PORT = 6666
+SERVER_PORT = 7777
+# 用于流控制
+WINDOW_SIZE = 50
 
-print('Bind UDP on 6666...')
+
+print('Bind UDP on 7777...')
 
 # 服务器接收函数
 def lget(s,client_addr,file_name):
     print('服务器正在发送',file_name,'到客户端',client_addr)
     # 暂时固定文件目录
     f = open(file_name,"rb")
-    packet_count = 0
+    packet_count = 1
+    rwnd_zero_flag = False
 
     while True:
         seq = packet_count
         ack = packet_count
-        data = f.read(FILE_SIZE)
-        if str(data) != "b''":
-            end = 0
-            s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
-            # print sys.getsizeof(packet_struct.pack(*(seq,ack,end,data)))
-            # print(data)
+        # 阻塞窗口未满，正常发送
+        if rwnd_zero_flag == False:
+            data = f.read(FILE_SIZE)
+            if str(data) != "b''":
+                end = 0
+                s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
+                # print sys.getsizeof(packet_struct.pack(*(seq,ack,end,data)))
+                # print(data)
+            else:
+                end = 1
+                data = 'end'.encode('utf-8')
+                s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
+                break
+        # 阻塞窗口满了，发确认rwnd的包
         else:
-            end = 1
-            data = 'end'.encode('utf-8')
+            seq = 0
+            end = 0
+            data = 'rwnd'.encode('utf-8')
             s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
-            break
 
         # 发送成功，等待ack
-        data,client_addr = s.recvfrom(BUF_SIZE)
-        print('接受自',client_addr,'收到数据为：',data.decode('utf-8'),' seq = ', seq)
+        packeted_data,client_addr = s.recvfrom(BUF_SIZE)
+        unpacked_data = feedback_struct.unpack(packeted_data)
+        rwnd = unpacked_data[1]
+        ack = unpacked_data[0]
+        # 判断rwnd是否已经满了
+        if rwnd == 0:
+            rwnd_zero_flag = True
+        else:
+            rwnd_zero_flag = False
+        
+        print('接受自',client_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
         packet_count += 1
 
     print('文件发送完成，一共发了'+str(packet_count),'个包')
@@ -50,7 +73,7 @@ def lsend(s,client_addr,file_name):
     print('服务器正在接收',file_name,'从客户端',client_addr)
     # 暂时固定文件目录
     f = open(file_name,"wb")
-    packet_count = 0
+    packet_count = 1
 
     while True:
         data,client_addr = s.recvfrom(BUF_SIZE)
