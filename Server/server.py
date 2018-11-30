@@ -3,6 +3,7 @@ import struct
 import threading
 import os
 import sys
+import random
 
 # 传送一个包的结构，包含序列号，确认号，文件结束标志，数据包
 packet_struct = struct.Struct('III1024s')
@@ -41,6 +42,7 @@ def lget(s,client_addr,file_name):
                 # print(data)
             else:
                 end = 1
+                packet_count+=1
                 data = 'end'.encode('utf-8')
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
                 break
@@ -75,25 +77,63 @@ def lsend(s,client_addr,file_name):
     f = open(file_name,"wb")
     packet_count = 1
 
+    # 接收窗口rwnd,rwnd = RcvBuffer - [LastByteRcvd - LastßyteRead ] 
+    rwnd = 50
+    # 空列表用于暂时保存数据包
+    List = []
+
     while True:
         data,client_addr = s.recvfrom(BUF_SIZE)
         unpacked_data = packet_struct.unpack(data)
-        seq = unpacked_data[0]
-        ack = unpacked_data[1]
+
+        packet_count += 1
+        if rwnd > 0:
+            # 服务端为确认rwnd的变化，会继续发送字节为1的包，这里我设置seq为-1代表服务端的确认
+            # 此时直接跳过处理这个包，返回rwnd的大小
+            if unpacked_data[0] == 0:
+                s.sendto(feedback_struct.pack(*(unpacked_data[0],rwnd)), client_addr)
+                continue
+            List.append(unpacked_data)
+            rwnd -= 1
+            # 接收完毕，发送ACK反馈包
+            s.sendto(feedback_struct.pack(*(unpacked_data[0],rwnd)), client_addr)
+        else:
+            s.sendto(feedback_struct.pack(*(unpacked_data[0],rwnd)), client_addr)  
+        print('服务器已接收第',unpacked_data[0],'个包','rwnd为',rwnd)
+        
+        # 随机将数据包写入文件，即存在某一时刻不写入，继续接收
+        random_write = random.randint(1,10)
+        random_num = random.randint(1,100)
+        # 40%机率写入文件,读入文件数也是随机数
+        if random_write > 6:
+            while len(List) > random_num:
+                unpacked_data = List[0]
+                seq = unpacked_data[0]
+                ack = unpacked_data[1]
+                end = unpacked_data[2]
+                data = unpacked_data[3]
+                del List[0]
+                rwnd += 1
+                if end != 1:
+                    f.write(data)
+                else:
+                    break
+        print(len(List),'end:',unpacked_data[2])
+        # 接收完毕，但是要处理剩下在List中的数据包
+        if unpacked_data[2] == 1:
+            break
+    # 处理剩下在List中的数据包
+    while len(List) > 0:
+        unpacked_data = List[0]
         end = unpacked_data[2]
         data = unpacked_data[3]
-
+        del List[0]
+        rwnd += 1
         if end != 1:
-            f.write(data)
+           f.write(data)
         else:
-            break
-
-        # 接收成功，发送ack
-        print('发送方已发送第',seq,'个包')
-        data = 'ACK'.encode('utf-8')
-        s.sendto(data,client_addr)
-        packet_count += 1
-
+           break
+        
     print('文件接收完成，一共收了'+str(packet_count),'个包')
     f.close()
 

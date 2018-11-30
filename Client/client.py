@@ -23,25 +23,49 @@ def lsend(s,server_addr,file_name):
     f = open(file_name,"rb")
     data='ACK'.encode('utf-8')
     s.sendto(data,server_addr)
+
+    rwnd_zero_flag = False
+
     while True:
-        data = f.read(FILE_SIZE)
         seq = packet_count
         ack = packet_count
-        # 文件未传输完成
-        if str(data)!="b''":
-            end = 0
-            s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
-            
-        # 文件传输完成，发送结束包
+        # 阻塞窗口未满，正常发送
+        if rwnd_zero_flag == False:
+            data = f.read(FILE_SIZE)
+            # 文件未传输完成
+            if str(data)!="b''":
+                end = 0
+                s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
+                
+            # 文件传输完成，发送结束包
+            else:
+                data = 'end'.encode('utf-8')
+                end = 1
+                packet_count += 1
+                s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
+                print('end packet:',seq)
+                break
+        # 阻塞窗口满了，发确认rwnd的包
         else:
-            data = 'end'.encode('utf-8')
-            end = 1
-            s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
-            break
-        # 等待服务器发送ack
-        data, server_address = s.recvfrom(BUF_SIZE)
-        print('服务器已接收第',seq,'个包')
+            seq = 0
+            end = 0
+            data = 'rwnd'.encode('utf-8')
+            s.sendto(packet_struct.pack(*(seq,ack,end,data)),server_addr)
+
+        # 发送成功，等待ack
+        packeted_data,server_address = s.recvfrom(BUF_SIZE)
+        unpacked_data = feedback_struct.unpack(packeted_data)
+        rwnd = unpacked_data[1]
+        ack = unpacked_data[0]
+        # 判断rwnd是否已经满了
+        if rwnd == 0:
+            rwnd_zero_flag = True
+        else:
+            rwnd_zero_flag = False
+
+        print('接受自',server_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
         packet_count += 1
+
     print('文件发送完成，一共发了'+str(packet_count),'个包')
     f.close()
 
@@ -52,7 +76,7 @@ def lget(s,server_addr,file_name):
     s.sendto(data,server_addr)
     f = open(file_name,"wb")
 
-    # 接收窗口rwnd,rwnd = RcvBuffer - [LastByteRcvd - LastßyteRead ] 
+    # 接收窗口rwnd,rwnd = RcvBuffer - [LastByteRcvd - LastßyteRead] 
     rwnd = 50
     # 空列表用于暂时保存数据包
     List = []
@@ -60,6 +84,7 @@ def lget(s,server_addr,file_name):
     while True:
         packeted_data,addr = s.recvfrom(BUF_SIZE)
         unpacked_data = packet_struct.unpack(packeted_data)
+        packet_count+=1
 
         # 先将数据加入列表，后面再读取出来
         if rwnd > 0:
@@ -92,11 +117,10 @@ def lget(s,server_addr,file_name):
                     f.write(data)
                 else:
                     break
+        print(len(List),'end:',unpacked_data[2])
         # 接收完毕，但是要处理剩下在List中的数据包
         if unpacked_data[2] == 1:
-            break;
-
-        packet_count+=1
+            break
 
     # 处理剩下在List中的数据包
     while len(List) > 0:
