@@ -24,14 +24,37 @@ def lsend(s,server_addr,file_name):
     data='ACK'.encode('utf-8')
     s.sendto(data,server_addr)
 
+    # 判断rwnd是否为0
     rwnd_zero_flag = False
+    # 判断是否需要重传
+    retransmit_flag = False
+    # 下一个需要传的包的序号seq
+    current_packet = 1
+
+    # 添加BUFFER暂时存储上一个发送过的包，当丢包发生时执行重传操作
+    packet_buffer = ['hello']
 
     while True:
         seq = packet_count
         ack = packet_count
         # 阻塞窗口未满，正常发送
         if rwnd_zero_flag == False:
-            data = f.read(FILE_SIZE)
+            # 不需要重传
+            if retransmit_flag == False:
+                data = f.read(FILE_SIZE)
+            # 需要重传
+            else:
+                ack -= 1
+                seq -= 1
+                packet_count -= 1
+                print('需要重传的包序号为 seq = ',seq)
+                data = packet_buffer[0]
+
+            del packet_buffer[0]
+            # 暂存下要传输的包，用于重传机制
+            packet_buffer.append(data)
+            current_packet = seq
+
             # 文件未传输完成
             if str(data)!="b''":
                 end = 0
@@ -45,18 +68,43 @@ def lsend(s,server_addr,file_name):
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
                 print('end packet:',seq)
                 break
+        
         # 阻塞窗口满了，发确认rwnd的包
         else:
-            seq = 0
-            end = 0
-            data = 'rwnd'.encode('utf-8')
+            # 不需要重传
+            if retransmit_flag == False:
+                seq = 0
+                end = 0
+                data = 'rwnd'.encode('utf-8')
+            # 需要重传
+            else:
+                ack -= 1
+                seq -= 1
+                packet_count -= 1
+                data = packet_buffer[0]
+
+            del packet_buffer[0]
+            # 暂存下要传输的包，用于重传机制
+            packet_buffer.append(data)
+            current_packet = seq
+
             s.sendto(packet_struct.pack(*(seq,ack,end,data)),server_addr)
+        
+        packet_count += 1
 
         # 发送成功，等待ack
         packeted_data,server_address = s.recvfrom(BUF_SIZE)
         unpacked_data = feedback_struct.unpack(packeted_data)
         rwnd = unpacked_data[1]
         ack = unpacked_data[0]
+
+        # 判断是否需要重传
+        if ack != current_packet:
+            print('ack: ',ack,' current_packet: ',current_packet)
+            retransmit_flag = True
+        else:
+            retransmit_flag = False
+
         # 判断rwnd是否已经满了
         if rwnd == 0:
             rwnd_zero_flag = True
@@ -64,7 +112,7 @@ def lsend(s,server_addr,file_name):
             rwnd_zero_flag = False
 
         print('接受自',server_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
-        packet_count += 1
+
 
     print('文件发送完成，一共发了'+str(packet_count),'个包')
     f.close()
@@ -84,8 +132,16 @@ def lget(s,server_addr,file_name):
     while True:
         packeted_data,addr = s.recvfrom(BUF_SIZE)
         unpacked_data = packet_struct.unpack(packeted_data)
-        packet_count+=1
 
+        # 设置随机丢包，并通知服务器要求重发
+        random_drop = random.randint(1,200)
+        if random_drop == 11:
+            print('客户端已丢失第',unpacked_data[0],'个包,要求服务器重发')
+            # 反馈上一个包的ack
+            s.sendto(feedback_struct.pack(*(unpacked_data[1]-1,rwnd)), server_addr)
+            continue
+
+        packet_count+=1
         # 先将数据加入列表，后面再读取出来
         if rwnd > 0:
             # 服务端为确认rwnd的变化，会继续发送字节为1的包，这里我设置seq为-1代表服务端的确认
@@ -93,6 +149,15 @@ def lget(s,server_addr,file_name):
             if unpacked_data[0] == 0:
                 s.sendto(feedback_struct.pack(*(unpacked_data[0],rwnd)), server_addr)
                 continue
+
+            # 要求序号要连续，否则将该包直接丢弃，等待下一个序号包的到来
+            if unpacked_data[1] != packet_count-1:
+                print('客户端接收第',unpacked_data[0],'个包的序号不正确,要求服务器重发')
+                # 反馈上一个包的ack
+                s.sendto(feedback_struct.pack(*(unpacked_data[1]-1,rwnd)), server_addr)
+                continue
+
+            # 序号一致，加进缓存
             List.append(unpacked_data)
             rwnd -= 1
             # 接收完毕，发送ACK反馈包
@@ -104,7 +169,7 @@ def lget(s,server_addr,file_name):
         random_write = random.randint(1,10)
         random_num = random.randint(1,100)
         # 40%机率写入文件,读入文件数也是随机数
-        if random_write > 6:
+        if random_write > 4:
             while len(List) > random_num:
                 unpacked_data = List[0]
                 seq = unpacked_data[0]
@@ -117,7 +182,7 @@ def lget(s,server_addr,file_name):
                     f.write(data)
                 else:
                     break
-        print(len(List),'end:',unpacked_data[2])
+        print('random_write: ',random_write,' random_num: ',random_num,' ', len(List),'end:',unpacked_data[2])
         # 接收完毕，但是要处理剩下在List中的数据包
         if unpacked_data[2] == 1:
             break
