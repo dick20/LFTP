@@ -4,6 +4,8 @@ import threading
 import os
 import sys
 import random
+import time
+
 
 # 传送一个包的结构，包含序列号，确认号，文件结束标志，数据包
 packet_struct = struct.Struct('III1024s')
@@ -34,24 +36,69 @@ def lget(s,client_addr,file_name):
     # 下一个需要传的包的序号seq
     current_packet = 1
 
+    # 拥塞窗口cwnd,初始化为1，慢启动
+    cwnd = 1
+    # 空列表用于暂时保存数据包
+    List = []
+    # 拥塞窗口的阈值threshold,初始化为25
+    threshold = 25
+    # 判断是否遇到阻塞
+    congestion_flag = False
+    # 判断线性增长
+    linear_flag = False
+
+
     # 添加BUFFER暂时存储上一个发送过的包，当丢包发生时执行重传操作
     packet_buffer = ['hello']
 
     while True:
         seq = packet_count
         ack = packet_count
-        # 阻塞窗口未满，正常发送
+
+        # 随机模拟遇到阻塞
+        random_send = random.randint(1,200)
+        if random_send <= 2:
+            # cwnd等于之前的阈值，新阈值等于遭遇阻塞时cwnd的一半
+            temp = cwnd
+            cwnd = threshold
+            threshold = int(temp/2)+1
+            congestion_flag = True
+            linear_flag = True
+        else:
+            congestion_flag = False
+
+        # 线路阻塞，停止发送，线程先休息0.01秒，稍后再继续发送
+        if congestion_flag == True:
+            print('传输线路遇到阻塞，将cwnd快速恢复至', cwnd)
+            time.sleep(0.01)
+            congestion_flag = False
+            continue
+
+        # 接收窗口未满，正常发送
         if rwnd_zero_flag == False:
             # 不需要重传
             if retransmit_flag == False:
                 data = f.read(FILE_SIZE)
+
+                # 阻塞控制
+                # cwnd小于阈值，慢启动，指数增加
+                if cwnd < threshold and linear_flag == False:
+                    cwnd *= 2
+                # 否则，线性增加
+                else:
+                    cwnd += 1
+                    linear_flag = True
             # 需要重传
             else:
                 ack -= 1
                 seq -= 1
                 packet_count -= 1
-                print('需要重传的包序号为 seq = ',seq)
+                print('需要重传的包序号为 seq = ',seq,'出现丢包事件，将cwnd调整为 cwnd = ',threshold)
                 data = packet_buffer[0]
+                # cwnd等于之前的阈值，新阈值等于遭遇阻塞时cwnd的一半
+                temp = cwnd
+                cwnd = threshold
+                threshold = int(temp/2)+1
 
             del packet_buffer[0]
             # 暂存下要传输的包，用于重传机制
@@ -71,10 +118,11 @@ def lget(s,client_addr,file_name):
                 unpacked_data = feedback_struct.unpack(packeted_data)
                 rwnd = unpacked_data[1]
                 ack = unpacked_data[0]
-                print('接受自',client_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
+                print('接受自',client_addr,'收到数据为：','rwnd = ', rwnd,
+                    'ack = ', ack,'发送方的数据：cwnd = ', cwnd)
                 break
 
-        # 阻塞窗口满了，发确认rwnd的包
+        # 接收窗口满了，发确认rwnd的包
         else:
             # 不需要重传
             if retransmit_flag == False:
@@ -105,7 +153,7 @@ def lget(s,client_addr,file_name):
 
         # 判断是否需要重传
         if ack != current_packet:
-            print('ack: ',ack,' current_packet: ',current_packet)
+            print('收到重复的ACK包: ack=',ack)
             retransmit_flag = True
         else:
             retransmit_flag = False
@@ -116,8 +164,8 @@ def lget(s,client_addr,file_name):
         else:
             rwnd_zero_flag = False
         
-        print('接受自',client_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
-
+        print('接受自',client_addr,'收到数据为：','rwnd = ', rwnd,
+                    'ack = ', ack,'发送方的数据：cwnd = ', cwnd)
     print('文件发送完成，一共发了'+str(packet_count),'个包')
     f.close()
 
