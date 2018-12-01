@@ -67,6 +67,12 @@ def lsend(s,server_addr,file_name):
                 packet_count += 1
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
                 print('end packet:',seq)
+                # 发送成功，等待ack
+                packeted_data,server_address = s.recvfrom(BUF_SIZE)
+                unpacked_data = feedback_struct.unpack(packeted_data)
+                rwnd = unpacked_data[1]
+                ack = unpacked_data[0]
+                print('接受自',server_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
                 break
         
         # 阻塞窗口满了，发确认rwnd的包
@@ -134,8 +140,8 @@ def lget(s,server_addr,file_name):
         unpacked_data = packet_struct.unpack(packeted_data)
 
         # 设置随机丢包，并通知服务器要求重发
-        random_drop = random.randint(1,200)
-        if random_drop == 11:
+        random_drop = random.randint(1,100)
+        if random_drop <= 5:
             print('客户端已丢失第',unpacked_data[0],'个包,要求服务器重发')
             # 反馈上一个包的ack
             s.sendto(feedback_struct.pack(*(unpacked_data[1]-1,rwnd)), server_addr)
@@ -224,6 +230,8 @@ def main():
     s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
     data = (op+','+file_name).encode('utf-8')
     server_addr=(server_ip,CLIENT_PORT)
+
+    # 三方握手
     # 发送请求建立连接
     s.sendto(data,server_addr)
     # 接收连接允许
@@ -240,6 +248,23 @@ def main():
     elif op == 'lsend':
         lsend(s,server_addr,file_name)
 
+    print('\n开始中断连接')
+    # 中断连接，四次挥手
+    data = 'Client requests disconnection'
+    print(data)
+    s.sendto(data.encode('utf-8'),server_addr)
+
+    data,client_addr = s.recvfrom(BUF_SIZE)
+    print(data.decode('utf-8'))
+
+    data,client_addr = s.recvfrom(BUF_SIZE)
+    print(data.decode('utf-8'))
+
+    data = 'Client allows disconnection'
+    s.sendto(data.encode('utf-8'),server_addr)
+    print(data)
+
+    print('The connection between client and server has been interrupted')
     s.close()
 
 if __name__ == "__main__":

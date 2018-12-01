@@ -66,6 +66,12 @@ def lget(s,client_addr,file_name):
                 packet_count+=1
                 data = 'end'.encode('utf-8')
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
+                # 发送成功，等待ack
+                packeted_data,client_addr = s.recvfrom(BUF_SIZE)
+                unpacked_data = feedback_struct.unpack(packeted_data)
+                rwnd = unpacked_data[1]
+                ack = unpacked_data[0]
+                print('接受自',client_addr,'收到数据为：','rwnd = ', rwnd,' ack = ', ack)
                 break
 
         # 阻塞窗口满了，发确认rwnd的包
@@ -228,6 +234,23 @@ def server_thread(client_addr,string):
         print('来自',client_addr,'的数据是：',data.decode('utf-8'))
         lsend(s,client_addr,file_name)
 
+    print('\n开始中断连接')
+    # 中断连接，四次挥手
+    data,server_addr = s.recvfrom(BUF_SIZE)
+    print(data.decode('utf-8'))
+
+    data = 'Server allows disconnection'
+    s.sendto(data.encode('utf-8'),client_addr)
+    print(data)
+
+    data = 'Server requests disconnection'
+    s.sendto(data.encode('utf-8'),client_addr)
+    print(data)
+
+    data,server_addr = s.recvfrom(BUF_SIZE)
+    print(data.decode('utf-8'))
+
+    print('The connection between client and server has been interrupted')
     s.close()
 
 
