@@ -1,3 +1,6 @@
+#!/usr/bin/python
+#coding:utf-8
+
 import socket
 import struct
 import threading
@@ -5,7 +8,8 @@ import os
 import sys
 import random
 import time
-
+import importlib
+importlib.reload(sys)
 
 # 传送一个包的结构，包含序列号，确认号，文件结束标志，数据包
 packet_struct = struct.Struct('III1024s')
@@ -20,8 +24,11 @@ SERVER_PORT = 7777
 # 用于流控制
 WINDOW_SIZE = 50
 
+RECV_BUF_SIZE = 1024 * 64
+SEND_BUF_SIZE = 1024 * 64
 
 print('Bind UDP on 7777...')
+
 
 # 服务器接收函数
 def lget(s,client_addr,file_name):
@@ -108,11 +115,13 @@ def lget(s,client_addr,file_name):
             if str(data) != "b''":
                 end = 0
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
+                # time.sleep(0.005)
             else:
                 end = 1
                 packet_count+=1
                 data = 'end'.encode('utf-8')
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
+                # time.sleep(0.005)
                 # 发送成功，等待ack
                 packeted_data,client_addr = s.recvfrom(BUF_SIZE)
                 unpacked_data = feedback_struct.unpack(packeted_data)
@@ -142,6 +151,7 @@ def lget(s,client_addr,file_name):
             current_packet = seq
 
             s.sendto(packet_struct.pack(*(seq,ack,end,data)),client_addr)
+            # time.sleep(0.005)
 
         packet_count += 1
 
@@ -177,7 +187,7 @@ def lsend(s,client_addr,file_name):
     packet_count = 1
 
     # 接收窗口rwnd,rwnd = RcvBuffer - [LastByteRcvd - LastßyteRead ] 
-    rwnd = 50
+    rwnd = 110
     # 空列表用于暂时保存数据包
     List = []
 
@@ -187,7 +197,7 @@ def lsend(s,client_addr,file_name):
 
         # 设置随机丢包，并通知客户端要求重发
         random_drop = random.randint(1,200)
-        if random_drop == 11:
+        if random_drop == 7:
             print('服务端已丢失第',unpacked_data[0],'个包,要求客户端重发')
             # 反馈上一个包的ack
             s.sendto(feedback_struct.pack(*(unpacked_data[1]-1,rwnd)), client_addr)
@@ -218,7 +228,7 @@ def lsend(s,client_addr,file_name):
         
         # 随机将数据包写入文件，即存在某一时刻不写入，继续接收
         random_write = random.randint(1,10)
-        random_num = random.randint(1,100)
+        random_num = random.randint(1,200)
         # 40%机率写入文件,读入文件数也是随机数
         if random_write > 6:
             while len(List) > random_num:
@@ -233,7 +243,6 @@ def lsend(s,client_addr,file_name):
                     f.write(data)
                 else:
                     break
-        print(len(List),'end:',unpacked_data[2])
         # 接收完毕，但是要处理剩下在List中的数据包
         if unpacked_data[2] == 1:
             break
@@ -261,6 +270,20 @@ def server_thread(client_addr,string):
     except Exception as e:
         return
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
+    # 设置socket的缓冲区
+    # 设置发送缓冲域套接字关联的选项
+    s.setsockopt(
+    socket.SOL_SOCKET,
+    socket.SO_SNDBUF,
+    SEND_BUF_SIZE)
+     
+    # 设置接收缓冲域套接字关联的选项
+    s.setsockopt(
+    socket.SOL_SOCKET,
+    socket.SO_RCVBUF,
+    RECV_BUF_SIZE)
+
     if order == 'lget':
         # 处理文件不存在的情况
         if os.path.exists(file_name) is False:
@@ -305,7 +328,7 @@ def server_thread(client_addr,string):
 def main():
     s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
     # 绑定端口:
-    s.bind(('', SERVER_PORT))
+    s.bind((IP, SERVER_PORT))
 
     while True:
         data,client_addr = s.recvfrom(BUF_SIZE)

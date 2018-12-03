@@ -11,6 +11,8 @@ BUF_SIZE = 1024+24
 CLIENT_PORT = 7777
 FILE_SIZE = 1024
 
+RECV_BUF_SIZE = 1024 * 64
+SEND_BUF_SIZE = 1024 * 64
 
 # 传送一个包的结构，包含序列号，确认号，文件结束标志，数据包
 packet_struct = struct.Struct('III1024s')
@@ -19,10 +21,12 @@ packet_struct = struct.Struct('III1024s')
 feedback_struct = struct.Struct('II')
 
 def lsend(s,server_addr,file_name):
-    packet_count = 1
-    f = open(file_name,"rb")
+	# 确认连接
     data='ACK'.encode('utf-8')
     s.sendto(data,server_addr)
+
+    packet_count = 1
+    f = open(file_name,"rb")
 
     # 判断rwnd是否为0
     rwnd_zero_flag = False
@@ -102,6 +106,7 @@ def lsend(s,server_addr,file_name):
             if str(data)!="b''":
                 end = 0
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
+                # time.sleep(0.005)
                 
             # 文件传输完成，发送结束包
             else:
@@ -109,6 +114,7 @@ def lsend(s,server_addr,file_name):
                 end = 1
                 packet_count += 1
                 s.sendto(packet_struct.pack(*(seq,ack,end,data)), server_addr)
+                # time.sleep(0.005)
                 # 发送成功，等待ack
                 packeted_data,server_address = s.recvfrom(BUF_SIZE)
                 unpacked_data = feedback_struct.unpack(packeted_data)
@@ -175,7 +181,7 @@ def lget(s,server_addr,file_name):
     f = open(file_name,"wb")
 
     # 接收窗口rwnd,rwnd = RcvBuffer - [LastByteRcvd - LastßyteRead] 
-    rwnd = 50
+    rwnd = 110
     # 空列表用于暂时保存数据包
     List = []
 
@@ -272,6 +278,20 @@ def main():
         exit(0)
 
     s = socket.socket(socket.AF_INET,socket.SOCK_DGRAM)
+
+	# 设置socket的缓冲区
+    # 设置发送缓冲域套接字关联的选项
+    s.setsockopt(
+    socket.SOL_SOCKET,
+    socket.SO_SNDBUF,
+    SEND_BUF_SIZE)
+     
+    # 设置接收缓冲域套接字关联的选项
+    s.setsockopt(
+    socket.SOL_SOCKET,
+    socket.SO_RCVBUF,
+    RECV_BUF_SIZE)
+
     data = (op+','+file_name).encode('utf-8')
     server_addr=(server_ip,CLIENT_PORT)
 
