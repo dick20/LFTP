@@ -1,9 +1,9 @@
 # LFTP
 ## 2018中山大学计算机网络项目：基于udp实现tcp功能进行大文件传输
 
-[!项目报告与测试文档](https://github.com/dick20/LFTP/blob/master/LFTP_Report.md)
+### [项目报告与测试文档](https://github.com/dick20/LFTP/blob/master/LFTP_Report.md)
 
----
+### 项目要求
 
 + Please choose one of following programing languages: C, C++, Java, **Python**;
   + **本项目采用的是python3.6**
