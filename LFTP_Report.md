@@ -37,7 +37,7 @@
 
 基于UDP的传输过程如下图所示
 
-![27](C:\Users\asus\Desktop\image\27.png)
+![27](https://github.com/dick20/LFTP/blob/master/image/27.png)
 
 
 
@@ -575,11 +575,11 @@ else:
 
 客户端ip地址为172.18.32.199
 
-![客户端ip](C:\Users\asus\Desktop\image\1.png)
+![客户端ip](https://github.com/dick20/LFTP/blob/master/image/1.png)
 
 服务器ip地址为192.168.88.129
 
-![服务器ip地址](C:\Users\asus\AppData\Roaming\Typora\typora-user-images\1543738332894.png)
+![服务器ip地址](https://github.com/dick20/LFTP/blob/master/image/2.png)
 
 
 
@@ -587,17 +587,17 @@ else:
 
 服务器先启动服务：
 
-![4](C:\Users\asus\Desktop\image\4.png)
+![4](https://github.com/dick20/LFTP/blob/master/image/4.png)
 
 客户端输入发送命令：
 
-![3](C:\Users\asus\Desktop\image\3.png)
+![3](https://github.com/dick20/LFTP/blob/master/image/3.png)
 
 
 
 客户端发送完成截图：
 
-![5](C:\Users\asus\Desktop\image\5.png)
+![5](https://github.com/dick20/LFTP/blob/master/image/5.png)
 
 
 
@@ -609,7 +609,7 @@ else:
 
 服务器端的完成情况：
 
-![6](C:\Users\asus\Desktop\image\6.png)
+![6](https://github.com/dick20/LFTP/blob/master/image/6.png)
 
 
 
@@ -619,7 +619,7 @@ else:
 
 查看服务器端的debug信息：
 
-![7](C:\Users\asus\Desktop\image\7.png)
+![7](https://github.com/dick20/LFTP/blob/master/image/7.png)
 
 
 
@@ -629,7 +629,7 @@ else:
 
 对于客户端的debug信息分析：阻塞事件
 
-![8](C:\Users\asus\Desktop\image\8.png)
+![8](https://github.com/dick20/LFTP/blob/master/image/8.png)
 
 **在第5423个数据包发送的时候，遇到了线路阻塞，于是执行阻塞控制，将cwnd快速恢复到上次的阈值，然后再线性增长，符合阻塞控制的函数 **
 
@@ -637,7 +637,7 @@ else:
 
 对于客户端的debug信息分析：丢包事件
 
-![9](C:\Users\asus\Desktop\image\9.png)
+![9](https://github.com/dick20/LFTP/blob/master/image/9.png)
 
 当发送方收到了重复的ACK包的时候，就会触发数据包重新发送的事件，直到下一个ACK为新值。
 
@@ -649,13 +649,13 @@ else:
 
 客户端命令：
 
-![10](C:\Users\asus\Desktop\image\10.png)
+![10](https://github.com/dick20/LFTP/blob/master/image/10.png)
 
 
 
 执行结果：
 
-![11](C:\Users\asus\Desktop\image\11.png)
+![11](https://github.com/dick20/LFTP/blob/master/image/11.png)
 
 
 
@@ -663,7 +663,7 @@ else:
 
 
 
-![12](C:\Users\asus\Desktop\image\12.png)
+![12](https://github.com/dick20/LFTP/blob/master/image/12.png)
 
 **文件大小正确，且能正确播放**
 
@@ -671,7 +671,7 @@ else:
 
 服务器结果：
 
-![13](C:\Users\asus\Desktop\image\13.png)
+![13](https://github.com/dick20/LFTP/blob/master/image/13.png)
 
 
 
@@ -685,33 +685,33 @@ else:
 
 服务端文件初始目录：
 
-![14](C:\Users\asus\Desktop\image\14.png)
+![14](https://github.com/dick20/LFTP/blob/master/image/14.png)
 
 
 
 客户端文件初始目录：
 
-![15](C:\Users\asus\Desktop\image\15.png)
+![15](https://github.com/dick20/LFTP/blob/master/image/15.png)
 
 
 
 打开三个命令行端口，分别输入命令来测试上传与获取：
 
-![16](C:\Users\asus\Desktop\image\16.png)
+![16](https://github.com/dick20/LFTP/blob/master/image/16.png)
 
-![17](C:\Users\asus\Desktop\image\17.png)
+![17](https://github.com/dick20/LFTP/blob/master/image/17.png)
 
-![18](C:\Users\asus\Desktop\image\18.png)
+![18](https://github.com/dick20/LFTP/blob/master/image/18.png)
 
 
 
 测试结果：
 
-![19](C:\Users\asus\Desktop\image\19.png)
+![19](https://github.com/dick20/LFTP/blob/master/image/19.png)
 
-![20](C:\Users\asus\Desktop\image\20.png)
+![20](https://github.com/dick20/LFTP/blob/master/image/20.png)
 
-![21](C:\Users\asus\Desktop\image\21.png)
+![21](https://github.com/dick20/LFTP/blob/master/image/21.png)
 
 
 
@@ -719,9 +719,9 @@ else:
 
 执行后，文件目录截图：
 
-![22](C:\Users\asus\Desktop\image\22.png)
+![22](https://github.com/dick20/LFTP/blob/master/image/22.png)
 
-![23](C:\Users\asus\Desktop\image\23.png)
+![23](https://github.com/dick20/LFTP/blob/master/image/23.png)
 
 **文件成功获取，客户端与服务器都可以正确打开文件，且文件大小一致**
 
@@ -737,19 +737,19 @@ else:
 
 客户端命令截图：
 
-![24](C:\Users\asus\Desktop\image\24.png)
+![24](https://github.com/dick20/LFTP/blob/master/image/24.png)
 
 
 
 客户端执行结果：**一共发送1061920个数据包**
 
-![25](C:\Users\asus\Desktop\image\25.png)
+![25](https://github.com/dick20/LFTP/blob/master/image/25.png)
 
 
 
 服务器执行结果：
 
-![26](C:\Users\asus\Desktop\image\26.png)
+![26](https://github.com/dick20/LFTP/blob/master/image/26.png)
 
 
 
